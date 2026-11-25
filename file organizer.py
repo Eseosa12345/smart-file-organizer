@@ -1,5 +1,4 @@
-from pathlib import Path 
-import os 
+from pathlib import Path
 import shutil
 
 # Establish the base home directory to ensure cross-platform compatibility (Mac/Windows/Linux)
@@ -15,32 +14,42 @@ suffix_dict = {
     h / 'Downloads/Revit files': ['.rvt', '.rfa', '.rte'],
     h / 'Downloads/Videos': ['.mkv', '.mp4', '.avi', '.mov', '.wmv', '.flv'],
     h / 'Downloads/Pictures': ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.svg', '.tiff'],
-    h / 'Downloads/Excel and CSV files ': ['.xlsx', '.xls', '.csv', '.ods', '.xlsm']
+    h / 'Downloads/Excel and CSV files': ['.xlsx', '.xls', '.csv', '.ods', '.xlsm']
 }
 
 # Automatically generate all targeted destination subdirectories if they don't exist yet
 for folder in suffix_dict.keys():
-    folder.mkdir(exist_ok=True)
+    folder.mkdir(parents=True, exist_ok=True)
 
 # Create a specialized project landing folder on the Desktop for engineering work
-(h / 'Desktop/Engineering').mkdir(exist_ok=True)
+(h / 'Desktop/Engineering').mkdir(parents=True, exist_ok=True)
 
 # High-priority keywords used to intercept and redirect engineering-specific files
-keywords = ['engineering', 'bs code', 'civil', 'steel', 'design', 'arup', 'concrete', 'structural', 'detailing']
+keywords = [
+    'engineering', 'civil', 'structural', 'design', 'detailing',
+    'bs code', 'bs 8110', 'bs8110', 'eurocode', 'ec2', 'ec3', 'aci',
+    'concrete', 'steel', 'rebar', 'reinforcement', 'foundation', 'footing',
+    'beam', 'column', 'slab', 'retaining', 'truss', 'load', 'calculation',
+    'calc', 'boq', 'quantity', 'schedule', 'bending', 'bbs', 'ga',
+    'general arrangement', 'layout', 'section', 'elevation', 'blueprint',
+    'revit', 'autocad', 'bim', 'staad', 'etabs', 'prota', 'naviate',
+    'geotech', 'soil', 'borehole', 'survey', 'site', 'construction', 'qa', 'qc'
+]
 
 # Global list to track files that failed to move (e.g., due to permission locks or corruption)
 error_files = []
+
 
 def file_organizer():
     # Recursively scan through the Downloads folder, including all nested subfolders
     for file_path in (h / 'Downloads').rglob('*'):
         print('Checking file:', file_path.name)
-        
+
         # Guard Clause: Skip directories; we only want to process actual files
         if not file_path.is_file():
             continue
-            
-        # Safety Check: Prevent the script from processing files that are already inside 
+
+        # Safety Check: Prevent the script from processing files that are already inside
         # our designated target folders, avoiding a destructive infinite processing loop.
         if any(target_folder in file_path.parents for target_folder in suffix_dict.keys()):
             continue
@@ -48,37 +57,36 @@ def file_organizer():
         # Evaluate the file against our extension rules
         for folder_path, extensions in suffix_dict.items():
             if file_path.suffix.lower() not in extensions:
-                continue  # Skip to the next dictionary item if the extension doesn't match
+                continue
 
             # Cache the original names to preserve the filename foundation during duplicate increments
             original_stem = file_path.stem
             original_suffix = file_path.suffix
-            
+
             # Establish the default fallback path parameters
             destination_name = file_path.name
             target_directory = folder_path
-            
+
             # Content Interception: Route file to Desktop if it matches professional keywords
             if any(word in file_path.name.lower() for word in keywords):
                 target_directory = h / 'Desktop/Engineering'
 
-            # Collision Handler: Append a counter (e.g., filename(1).pdf) if a file already exists
+            # Collision Handler: Append a counter (e.g., filename (1).pdf) if a file already exists
             count = 1
             while (target_directory / destination_name).exists():
-                destination_name = f"{original_stem}({count}){original_suffix}"
+                destination_name = f"{original_stem} ({count}){original_suffix}"
                 count += 1
 
             # Execution Layer: Safe file transfer wrapper
             try:
                 shutil.move(str(file_path), str(target_directory / destination_name))
             except Exception as e:
-                # Catch system errors (like open files or permission limits) without stopping the whole script
                 print(f"Error moving {file_path.name}: {e}")
                 error_files.append(file_path)
 
             break  # Break out of the extension matching loop once the file finds its home
 
-# Standard Python entry point execution guard
+
 if __name__ == '__main__':
     file_organizer()
     if error_files:
